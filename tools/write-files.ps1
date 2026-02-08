@@ -214,6 +214,21 @@ Mandatory before merge/release when changes touch any of:
 '@
   },
   @{
+    path = "README.md"
+    content = @'
+# WebDesignOS
+
+WebDesignOS is a local-first, deterministic, multi-agent system for building SaaS apps. It is security-by-construction and enforced by deterministic gates.
+
+LLMs may propose changes. Deterministic scripts decide PASS/FAIL.
+
+## Security Gate
+The one command that matters:
+
+pwsh -File .\tools\security\check.ps1
+'@
+  },
+  @{
     path = ".agents\security\check-specs\v1\check-specs.json"
     content = @'
 {
