@@ -1,0 +1,32 @@
+[
+  {
+    "rule_id": "WDSO-RLS-002",
+    "severity": "WARN",
+    "file": "tools/security/fixtures/fail-rls-true-footgun.sql",
+    "message": "If a file defines RLS policies, prefer policies referencing auth.uid()."
+  },
+  {
+    "rule_id": "WDSO-ROLE-001",
+    "severity": "FAIL",
+    "file": "tools/security/fixtures/fail-self-role-escalation.sql",
+    "message": "Forbidden pattern matched: (?is)\\bupdate\\s+(?:public\\.)?(profiles|memberships|roles|permissions|billing|plans|subscriptions|audit)\\b[\\s\\S]*?\\bset\\b[\\s\\S]*?\\b(role|is_admin|admin|tier|plan|account_type|permission[a-z0-9_]*)\\b"
+  },
+  {
+    "rule_id": "WDSO-FN-002",
+    "severity": "FAIL",
+    "file": "tools/security/fixtures/fail-secdef-missing-marker.sql",
+    "message": "If SECURITY DEFINER exists, require a WDSO_ALLOW_SECURITY_DEFINER marker comment with a reason."
+  },
+  {
+    "rule_id": "WDSO-FN-003",
+    "severity": "FAIL",
+    "file": "tools/security/fixtures/fail-secdef-dynamic-sql.sql",
+    "message": "If SECURITY DEFINER contains EXECUTE, require a WDSO_ALLOW_DYNAMIC_SQL marker comment with a reason."
+  },
+  {
+    "rule_id": "WDSO-RLS-003",
+    "severity": "FAIL",
+    "file": "tools/security/fixtures/fail-rls-true-footgun.sql",
+    "message": "Forbidden pattern matched: (?is)\\bcreate\\s+policy\\b[\\s\\S]*?\\bon\\s+(?:public\\.)?(profiles|memberships|roles|permissions|billing|plans|subscriptions|audit)\\b[\\s\\S]*?\\busing\\s*\\(\\s*true\\s*\\)"
+  }
+]

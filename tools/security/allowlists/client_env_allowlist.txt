@@ -1,0 +1,4 @@
+# Client-exposed env var allowlist (Vite)
+# One per line. Only variables listed here may be referenced as import.meta.env.VITE_*
+VITE_SUPABASE_URL
+VITE_SUPABASE_ANON_KEY

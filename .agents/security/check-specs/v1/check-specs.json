@@ -1,0 +1,193 @@
+{
+  "version": "1.0.0",
+  "generated_from": "SECURITY_RULEBOOK_v1.md",
+  "scope": {
+    "repo_root": ".",
+    "excluded_globs": [
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/.next/**",
+      "**/.turbo/**",
+      "**/.cache/**"
+    ]
+  },
+  "rules": [
+    {
+      "id": "WDSO-RLS-001",
+      "title": "RLS must be enabled for public tables created in migrations",
+      "why": "Missing RLS is a common catastrophic misconfig.",
+      "severity": "FAIL",
+      "targets": { "globs": ["**/*.sql"] },
+      "checks": [
+        {
+          "type": "regex_pair_required",
+          "description": "If a file creates a public table, it must enable RLS in the same file.",
+          "if_regex": "(?is)\\bcreate\\s+table\\s+public\\.",
+          "then_regex": "(?is)\\balter\\s+table\\s+public\\.[^;]+\\s+enable\\s+row\\s+level\\s+security\\b"
+        }
+      ]
+    },
+    {
+      "id": "WDSO-RLS-002",
+      "title": "Policies should bind access to auth.uid()",
+      "why": "Prevents guessing IDs for access.",
+      "severity": "WARN",
+      "targets": { "globs": ["**/*.sql"] },
+      "checks": [
+        {
+          "type": "regex_if_not_contains",
+          "description": "If a file defines RLS policies, prefer policies referencing auth.uid().",
+          "if_regex": "(?is)\\bcreate\\s+policy\\b",
+          "must_contain_regex": "(?is)\\bauth\\.uid\\(\\)\\b"
+        }
+      ]
+    },
+    {
+      "id": "WDSO-ROLE-001",
+      "title": "Self-role escalation patterns are forbidden",
+      "why": "Users must not be able to set or elevate their own roles/tiers/permissions.",
+      "severity": "FAIL",
+      "targets": { "globs": ["**/*.sql"] },
+      "checks": [
+        {
+          "type": "regex_forbidden",
+          "description": "Block updates/inserts to role-like columns on user-controlled tables.",
+          "forbidden_regexes": [
+            "(?is)\\bupdate\\s+(?:public\\.)?(profiles|memberships|roles|permissions|billing|plans|subscriptions|audit)\\b[\\s\\S]*?\\bset\\b[\\s\\S]*?\\b(role|is_admin|admin|tier|plan|account_type|permission[a-z0-9_]*)\\b",
+            "(?is)\\binsert\\s+into\\s+(?:public\\.)?(profiles|memberships|roles|permissions|billing|plans|subscriptions|audit)\\b\\s*\\([^)]*\\b(role|is_admin|admin|tier|plan|account_type|permission[a-z0-9_]*)\\b[^)]*\\)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "WDSO-FN-001",
+      "title": "SECURITY DEFINER functions must set a safe search_path",
+      "why": "Prevents search_path hijacks and RLS bypass surprises.",
+      "severity": "FAIL",
+      "targets": { "globs": ["**/*.sql"] },
+      "checks": [
+        {
+          "type": "regex_pair_required",
+          "description": "If SECURITY DEFINER exists, require SET search_path = pg_catalog, public (or stricter).",
+          "if_regex": "(?is)\\bsecurity\\s+definer\\b",
+          "then_regex": "(?is)\\bset\\s+search_path\\s*=\\s*pg_catalog\\s*,\\s*public\\b"
+        }
+      ]
+    },
+    {
+      "id": "WDSO-FN-002",
+      "title": "SECURITY DEFINER requires explicit allowlist marker",
+      "why": "SECURITY DEFINER is dangerous unless explicitly justified.",
+      "severity": "FAIL",
+      "targets": { "globs": ["**/*.sql"] },
+      "checks": [
+        {
+          "type": "regex_pair_required",
+          "description": "If SECURITY DEFINER exists, require a WDSO_ALLOW_SECURITY_DEFINER marker comment with a reason.",
+          "if_regex": "(?is)\\bsecurity\\s+definer\\b",
+          "then_regex": "(?m)^\\s*--\\s*WDSO_ALLOW_SECURITY_DEFINER\\s*:\\s*.+$"
+        }
+      ]
+    },
+    {
+      "id": "WDSO-FN-003",
+      "title": "Dynamic SQL in SECURITY DEFINER requires explicit allowlist marker",
+      "why": "EXECUTE in SECURITY DEFINER can bypass safeguards unless explicitly justified.",
+      "severity": "FAIL",
+      "targets": { "globs": ["**/*.sql"] },
+      "checks": [
+        {
+          "type": "regex_pair_required",
+          "description": "If SECURITY DEFINER contains EXECUTE, require a WDSO_ALLOW_DYNAMIC_SQL marker comment with a reason.",
+          "if_regex": "(?is)\\bsecurity\\s+definer\\b[\\s\\S]*?\\bexecute\\b",
+          "then_regex": "(?m)^\\s*--\\s*WDSO_ALLOW_DYNAMIC_SQL\\s*:\\s*.+$"
+        }
+      ]
+    },
+    {
+      "id": "WDSO-TRG-001",
+      "title": "Trigger inserts should be idempotent",
+      "why": "Retries happen; duplicates break ownership/roles.",
+      "severity": "FAIL",
+      "targets": { "globs": ["**/*.sql"] },
+      "checks": [
+        {
+          "type": "regex_pair_required",
+          "description": "If a trigger function performs INSERT, it should contain ON CONFLICT or another idempotent guard.",
+          "if_regex": "(?is)\\bcreate\\s+(or\\s+replace\\s+)?function\\b[\\s\\S]*?\\blanguage\\s+plpgsql\\b[\\s\\S]*?\\bas\\s+\\$\\$[\\s\\S]*?\\binsert\\b",
+          "then_regex": "(?is)\\bon\\s+conflict\\b|\\bwhere\\s+not\\s+exists\\b"
+        }
+      ]
+    },
+    {
+      "id": "WDSO-RLS-003",
+      "title": "RLS footgun: USING true / WITH CHECK true on sensitive tables",
+      "why": "Always-true policies on sensitive tables effectively disable RLS.",
+      "severity": "FAIL",
+      "targets": { "globs": ["**/*.sql"] },
+      "checks": [
+        {
+          "type": "regex_forbidden",
+          "description": "Block always-true RLS policies on sensitive tables.",
+          "forbidden_regexes": [
+            "(?is)\\bcreate\\s+policy\\b[\\s\\S]*?\\bon\\s+(?:public\\.)?(profiles|memberships|roles|permissions|billing|plans|subscriptions|audit)\\b[\\s\\S]*?\\busing\\s*\\(\\s*true\\s*\\)",
+            "(?is)\\bcreate\\s+policy\\b[\\s\\S]*?\\bon\\s+(?:public\\.)?(profiles|memberships|roles|permissions|billing|plans|subscriptions|audit)\\b[\\s\\S]*?\\bwith\\s+check\\s*\\(\\s*true\\s*\\)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "WDSO-ENV-001",
+      "title": "Client env vars must be allowlisted",
+      "why": "Prevents accidental secret exposure via VITE_ variables.",
+      "severity": "FAIL",
+      "targets": { "globs": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.js", "src/**/*.jsx"] },
+      "checks": [
+        {
+          "type": "vite_env_allowlist",
+          "description": "All import.meta.env.VITE_* must be present in tools/security/allowlists/client_env_allowlist.txt",
+          "allowlist_path": "tools/security/allowlists/client_env_allowlist.txt"
+        }
+      ]
+    },
+    {
+      "id": "WDSO-KEY-001",
+      "title": "Service role key must not appear in client code",
+      "why": "Service role is god-mode and must never ship to the client.",
+      "severity": "FAIL",
+      "targets": { "globs": ["src/**/*.*"] },
+      "checks": [
+        {
+          "type": "regex_forbidden",
+          "description": "Block common service role key patterns and references in client source.",
+          "forbidden_regexes": [
+            "(?i)service[_-]?role",
+            "(?i)SUPABASE_SERVICE_ROLE_KEY",
+            "(?i)serviceRoleKey"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "WDSO-SECRET-001",
+      "title": "No secrets committed to repo or agent outputs",
+      "why": "Leaks are permanent and multiply in multi-agent systems.",
+      "severity": "FAIL",
+      "targets": { "globs": ["**/*.*"] },
+      "checks": [
+        {
+          "type": "secret_scan",
+          "description": "Scan for common credential patterns and high-risk tokens.",
+          "patterns_path": "tools/security/secret-patterns.txt",
+          "exclude_globs": [
+            "**/.env",
+            "**/.env.*",
+            "**/.git/**"
+          ]
+        }
+      ]
+    }
+  ]
+}
